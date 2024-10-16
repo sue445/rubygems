@@ -1603,6 +1603,53 @@ RSpec.describe "bundle gem" do
         expect(bundled_app("#{gem_name}/Rakefile").read).to eq(rakefile)
       end
     end
+
+    context "--ext parameter set with go" do
+      let(:flags) { "--ext=go" }
+
+      before do
+        bundle ["gem", gem_name, flags].compact.join(" ")
+      end
+
+      it "is not deprecated" do
+        expect(err).not_to include "[DEPRECATED] Option `--ext` without explicit value is deprecated."
+      end
+
+      it "builds ext skeleton" do
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.c")).to exist
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.go")).to exist
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/extconf.rb")).to exist
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/go.mod")).to exist
+      end
+
+      it "includes go_gem gems in gem_name.gemspec" do
+        expect(bundled_app("#{gem_name}/#{gem_name}.gemspec").read).to include('spec.add_dependency = "go_gem')
+      end
+
+      it "includes go_gem extension in extconf.rb" do
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/extconf.rb").read).to include(<<~RUBY)
+          require "mkmf"
+          require "go_gem/mkmf"
+        RUBY
+
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/extconf.rb").read).to include(%Q{create_go_makefile("#{gem_name}/#{gem_name}")})
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/extconf.rb").read).not_to include("create_makefile")
+      end
+
+      it "includes go_gem extension in gem_name.c" do
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.c").read).to include(<<~C)
+          #include "#{gem_name}.h"
+          #include "_cgo_export.h"
+        C
+      end
+
+      it "not includes c extension functions in gem_name.c" do
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.c").read).not_to match(/VALUE\s*rb/)
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.c").read).not_to include "RUBY_FUNC_EXPORTED void"
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.c").read).not_to match(/Init_.+\(void\)/)
+        expect(bundled_app("#{gem_name}/ext/#{gem_name}/#{gem_name}.c").read).not_to match(/rb_m.+\s*=\s*rb_define_module\(".+"\);/)
+      end
+    end
   end
 
   context "gem naming with dashed" do
