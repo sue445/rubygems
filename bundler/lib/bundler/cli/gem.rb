@@ -213,6 +213,13 @@ module Bundler
         )
       end
 
+      if extension == "go"
+        templates.merge!(
+          "ext/newgem/go.mod.tt" => "ext/#{name}/go.mod",
+          "ext/newgem/newgem.go.tt" => "ext/#{name}/#{underscored_name}.go",
+        )
+      end
+
       if target.exist? && !target.directory?
         Bundler.ui.error "Couldn't create a new gem named `#{gem_name}` because there's an existing file named `#{gem_name}`."
         exit Bundler::BundlerError.all_errors[Bundler::GenericSystemCallError]
